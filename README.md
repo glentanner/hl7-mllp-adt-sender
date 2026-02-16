@@ -1,42 +1,108 @@
-# HL7 v2 Integration Harness (Java)
+# HL7 v2 Integration Harness
+## Overview
+This project is a self-directed healthcare integration simulator designed to model real-world HL7 v2 message flows between clinical systems using MLLP transport and an interface engine.
 
-A self-directed **simulated clinical interface implementation** designed to model how HL7 v2 messages are transported, acknowledged, rejected, retried, and archived in real hospital environments.
+It demonstrates end-to-end ADT messaging patterns commonly found in hospital environments, including:
 
-This project emphasizes **interface behavior, failure modes, and recoverability** rather than UI configuration, reflecting how clinical interface engines are operated and supported in regulated healthcare settings.
+* HL7 v2 message construction and transmission
 
-A Dockerized instance of NextGen Connect (Mirth) is used to simulate an interface engine receiving messages from an upstream registration system.
+* MLLP socket communication
+
+* ACK correlation (AA / AE / AR)
+
+* retry and backoff logic
+
+* error classification
+
+* message archiving
+
+* Dockerized NextGen Connect (Mirth) channels
+
+The goal is to emulate how upstream registration systems interact with downstream interface engines in production healthcare environments.
+
+This project is intended to showcase practical healthcare interoperability concepts rather than serve as a production-ready framework.
 
 ---
+## What This Simulates (Clinical Context)
 
-## 🎯 Integration Behaviors Demonstrated
+In a typical hospital workflow:
 
-- HL7 v2 message construction (ADT events) in Java  
-- MLLP framing over raw TCP sockets  
-- ACK processing and correlation (AA / AE / AR)  
-- Control ID correlation (MSH-10 ↔ MSA-2)  
-- Timeout handling, retry rules, and backoff  
-- Failure classification and archival for audit and replay  
-- Interface engine simulation using Dockerized NextGen Connect (Mirth)
+1. A registration system generates an ADT message (patient admission / update).
 
-This mirrors how many real-world hospital interfaces still operate today.
+2. The message is transmitted over MLLP.
 
+3. An interface engine (such as Mirth) receives the message.
+
+4. An HL7 ACK is returned.
+
+5. Messages are archived or flagged depending on success or failure.
+
+This harness reproduces that pattern:
+
+* A Java-based HL7 sender generates ADT messages using HAPI.
+
+* Messages are framed and transmitted via MLLP.
+
+* A Dockerized NextGen Connect (Mirth) instance listens for inbound messages.
+
+* ACK responses are parsed and correlated.
+
+* Failed transmissions are retried with backoff.
+
+* Messages are classified and archived based on outcome.
+
+This mirrors common operational realities in healthcare integration teams.
 ---
-## 🧪 Interface Scenario Example
+## Architecture (High Level)
+```
+[ Java HL7 Sender ]
+        |
+        |  HL7 v2 over MLLP
+        v
+[ Mirth Listener (Docker) ]
+        |
+        v
+   ACK Response
+```
+---
+## Features
 
-**Scenario:**  
-An ADT^A01 message is sent for a patient registration event.
+* HL7 v2 ADT message generation
 
-**Expected behavior:**
-- Message is framed using MLLP and transmitted over TCP
-- ACK is correlated using MSH-10 ↔ MSA-2
-- On `AA`, the message is archived as successfully processed
-- On `AR` (e.g., missing PID segment):
-  - Message is not retried
-  - Payload and ACK are archived
-  - Failure is classified for later inspection or replay
+* MLLP framing and socket communication
 
-This mirrors real-world interface engine behavior where invalid clinical messages must be preserved for audit and remediation rather than silently discarded.
+* ACK control ID correlation
 
+* Retry / backoff on failed delivery
+
+* Error classification (AA / AE / AR)
+
+* Message archiving for audit/debugging
+
+* Docker Compose environment for reproducible setup
+
+* Simple logging for troubleshooting
+---
+Tech Stack
+
+Java (HAPI HL7)
+
+Maven
+
+Docker / Docker Compose
+
+NextGen Connect (Mirth)
+
+TCP / MLLP
+
+Getting Started
+Prerequisites
+
+Docker + Docker Compose
+
+Java 11+
+
+Maven
 ---
 
 ## 🏥 Clinical Context

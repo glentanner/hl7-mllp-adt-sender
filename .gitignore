@@ -10,6 +10,7 @@ target/
 target/
 out/
 *.log
+README (Copy).md
 
 # OS (keep it clean for macOS)
 .DS_Store
