@@ -85,220 +85,87 @@ This mirrors common operational realities in healthcare integration teams.
 ---
 Tech Stack
 
-Java (HAPI HL7)
+* Java (HAPI HL7)
 
-Maven
+* Maven
 
-Docker / Docker Compose
+* Docker / Docker Compose
 
-NextGen Connect (Mirth)
+* NextGen Connect (Mirth)
 
-TCP / MLLP
-
-Getting Started
-Prerequisites
-
-Docker + Docker Compose
-
-Java 11+
-
-Maven
+* TCP / MLLP
 ---
+## Getting Started
+### Prerequisites
 
-## 🏥 Clinical Context
+* Docker + Docker Compose
 
-This harness models a simplified upstream **patient registration system** sending ADT messages to a downstream **interface engine**, mirroring common hospital integration patterns.
+* Java 11+
 
-The focus is on:
-- Correct sequencing and acknowledgment of patient events
-- Detecting and classifying malformed clinical data
-- Ensuring failed messages are traceable and recoverable
-- Preventing silent data loss in regulated environments
-
-These concerns are foundational to clinical systems such as pharmacy, laboratory, oncology, and downstream EMR integrations.
-While this harness runs in a non-production environment, the behaviors modeled reflect production interface patterns commonly encountered in hospital IT operations.
-
+* Maven
 ---
-
-## 🧱 Logical Architecture (Non-Production)
-
-    +------------------+        MLLP/TCP        +---------------------------+
-    |  Java Sender     |  ------------------>  |  NextGen Connect (Mirth)  |
-    |  (ADT Producer)  |  <------------------  |  TCP Listener + ACK       |
-    +------------------+        HL7 ACK         +---------------------------+
-                                                  |
-                                                  v
-                                          File Writer (archive)
-
-------------------------------------------------------------------------
-
-## 🛠️ Tech Stack
-
-- Java 25 (compiled for Java 21)
-- Maven
-- Docker & Docker Compose
-- NextGen Connect (Mirth) 4.5.2
-- Ubuntu 24.04
-- IntelliJ IDEA
-
----
-
-## 📋 Prerequisites
-
-- Java 21+
-- Maven 3.9+
-- Docker & Docker Compose
-- Git
-
----
-
-## 🚀 Quick Start
-
-### 1️⃣ Start Mirth in Docker
-
-From the repo root:
-
-```bash
-docker compose up -d
+## Start Mirth
 ```
-------------------------------------------------------------------------
+docker-compose up -d
+```
+This launches a local Mirth instance listening for HL7 traffic.
 
-Services exposed:
-
-Admin UI: https://localhost:8443
-
-Web UI: http://localhost:8080
-
-MLLP Listener: port 2575
-
-Default login on first run:\
-`admin / admin`
-
-------------------------------------------------------------------------
-
-### 2️⃣ Import the Mirth Channel
-
-A preconfigured NextGen Connect (Mirth) channel is included.
-
-In **Mirth Connect Administrator**:
-1. Channels → Import
-2. Import:
-   `mirth/channels/LLP_Inbound_2575.xml`
-3. Deploy the channel
-
-The channel includes:
-- TCP Listener (MLLP server) on port 2575
-- Source Filter enforcing required PID segment
-- Auto-generated ACKs (AA / AR)
-- File Writer archiving inbound HL7
-
-
-------------------------------------------------------------------------
-
-### 3️⃣ Build and Run the Java Sender
-
-``` bash
+---
+## Build and Run Sender
+```
 mvn clean package
-java -jar target/hl7-v2-integration-harness-0.1.0.jar
+java -jar target/hl7-sender.jar
+```
+The sender will generate ADT messages and transmit them to the Mirth listener.
+
+ACK responses are logged and messages are archived based on outcome.
+
+---
+## Sample HL7(Exerpt)
+```
+MSH|^~\&|ADT|HOSPITAL|MIRTH|INTERFACE|20260101||ADT^A01|12345|P|2.5
+PID|||123456||Doe^John
+PV1||I
 ```
 
-------------------------------------------------------------------------
+---
+## What This Demonstrates
+This project reflects common responsibilities of Interface / Integration Analysts:
 
-### 4️⃣ Verify Success
+* building and testing HL7 pipelines
 
-Expected logs:
+* validating ACK behavior
 
-    Sending ADT^A01 attempt=1 controlId=...
-    ACK msaCode=AA msaControlId=... correlated=true latencyMs=...
-    SUCCESS
+* troubleshooting transport failures
 
-Archived messages appear in:
+* understanding clinical workflows behind ADT messages
 
-``` bash
-out/
-  inbound_<timestamp>.hl7
-```
+* working with interface engines
 
-Containing the HL7 message.
+* managing retries and error paths
 
-------------------------------------------------------------------------
+* creating reproducible environments
 
-## 📄 Example HL7 Message
+It was built as hands-on practice for healthcare integration roles involving HL7, MLLP, and Mirth.
 
-    MSH|^~\&|JAVA_SENDER|HOSP|MIRTH|HOSP|20251219152533||ADT^A01|<uuid>|P|2.3
-    PID|1||123456^^^HOSP^MR||DOE^JANE||19800101|F
-    PV1|1|E|ER^01^01^HOSP|||||||||||||||V0001
+---
+## Future Enhancements
+* ORM / ORU message support
 
+* TLS transport
 
-------------------------------------------------------------------------
+* database-backed message persistence
 
-## ⚙️ Configuration
+* richer Mirth channel logic
 
-Environment variables:
+* metrics dashboard
 
-  Variable                Default       Description
-  ----------------------- ------------- ----------------
-  `HL7_HOST`              `127.0.0.1`   MLLP host
-  `HL7_PORT`              `2575`        MLLP port
-  `HL7_READ_TIMEOUT_MS`   `5000`        ACK timeout
-  `HL7_MAX_ATTEMPTS`      `3`           Retry attempts
-  `HL7_BACKOFF_MS`        `500`         Retry delay
+---
+## Author
 
-Example:
+Glen Tanner
 
-``` bash
-HL7_HOST=127.0.0.1 HL7_PORT=2575 \
-java -jar target/hl7-v2-integration-harness-0.1.0.jar
-```
-
-------------------------------------------------------------------------
-
-## 🧠 Key Concepts
-
--   **MLLP Framing**\
-    Messages are wrapped with:
-
-    -   Start: `0x0B`
-    -   End: `0x1C 0x0D`
-
--   **ACK Correlation**\
-    `MSH-10` (control ID) must match `MSA-2` in the ACK.
-
--   **AA / AE / AR**\
-    Accept, Error, Reject --- determines sender behavior.
-    
-## ❌ Negative ACK Handling
-
-- Messages missing required segments (e.g. PID) are **rejected by Mirth**
-    - Messages missing required segments (e.g., PID) are rejected
-    - AR responses are not retried
-    - Failed payloads and ACKs are archived for inspection
-
-    (This mirrors real-world interface engine behavior)
-
-------------------------------------------------------------------------
-
-## 🗂️ Repo Structure
-
-    .
-    ├── src/main/java/com/medlydesign/hl7mllp
-    │   ├── Main.java
-    │   ├── MllpClient.java
-    │   ├── Hl7AdtBuilder.java
-    │   ├── Hl7Ack.java
-    │   └── Hl7AckParser.java
-    ├── docker-compose.yml
-    ├── out/               # HL7 archives (gitignored)
-    ├── pom.xml
-    └── README.md
-
-------------------------------------------------------------------------
-
-## 🏁 Planned Clinical Scenarios
-
-### ADT lifecycle progression (A01 → A08 → A03)
-### Clinical order workflows (ORM) and downstream result flows (ORU)
-### Sequencing and dependency handling common in medication and oncology workflows
+Healthcare Systems/Integration
 
 ------------------------------------------------------------------------
 
@@ -307,7 +174,3 @@ java -jar target/hl7-v2-integration-harness-0.1.0.jar
 MIT Copyright &copy; 2025 Glen Tanner
 
 ------------------------------------------------------------------------
-
-## 👤 Author
-
-Built by Glen Tanner as a self-directed integration project exploring HL7 v2 messaging, MLLP transport behavior, failure handling, and workflow progression in regulated healthcare systems.
